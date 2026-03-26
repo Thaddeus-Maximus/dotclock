@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>dotclock</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a1a;color:#e0e0e0;display:flex;justify-content:center;padding:20px}
+.wrap{max-width:420px;width:100%}
+h1{font-size:1.4em;margin-bottom:16px;color:#fff}
+h2{font-size:1.05em;margin-bottom:8px;color:#ccc}
+.section{background:#222;border-radius:8px;padding:14px;margin-bottom:12px}
+.status{padding:10px;background:#222;border-radius:6px;margin-bottom:12px;font-size:0.9em;min-height:36px}
+.status.ok{border-left:3px solid #4a4}
+.status.err{border-left:3px solid #a44}
+.row{display:flex;align-items:center;margin-bottom:10px;gap:10px}
+.row:last-child{margin-bottom:0}
+.row label{min-width:80px;font-size:0.9em;color:#aaa}
+.row input[type=range]{flex:1}
+.row .val{min-width:28px;text-align:right;font-size:0.9em}
+input[type=time],input[type=text],select{background:#333;border:1px solid #555;color:#e0e0e0;padding:6px 8px;border-radius:4px;font-size:0.95em}
+input[type=text]{width:100%}
+select{flex:1}
+button,.btn{background:#333;border:1px solid #555;color:#e0e0e0;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.9em}
+button:hover,.btn:hover{background:#444}
+button.primary{background:#2a6;border-color:#2a6;color:#fff}
+button.primary:hover{background:#3b7}
+button.danger{background:#a33;border-color:#a33;color:#fff}
+button.danger:hover{background:#c44}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#555;border-radius:12px;transition:.2s}
+.toggle .slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#ccc;border-radius:50%;transition:.2s}
+.toggle input:checked+.slider{background:#2a6}
+.toggle input:checked+.slider:before{transform:translateX(20px)}
+.upload-area{border:2px dashed #444;border-radius:8px;padding:30px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s}
+.upload-area:hover,.upload-area.drag{border-color:#888}
+.upload-area .hint{color:#888;font-size:0.85em;margin-top:4px}
+input[type=file]{display:none}
+.progress{display:none;margin-top:12px}
+.progress-bar{height:6px;background:#333;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:#4a4;width:0%;transition:width 0.3s}
+.file-list{list-style:none;margin-top:8px}
+.file-list li{display:flex;align-items:center;padding:7px 8px;background:#2a2a2a;border-radius:4px;margin-bottom:3px;font-size:0.88em}
+.file-list .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;cursor:pointer}
+.file-list .name:hover{color:#fff}
+.file-list .size{color:#888;margin:0 8px;white-space:nowrap;font-size:0.85em}
+.file-list .alarm-sel{margin-right:6px;cursor:pointer;font-size:1.1em;opacity:0.3}
+.file-list .alarm-sel.active{opacity:1;color:#fa0}
+.file-list .acts button{background:none;border:none;color:#888;cursor:pointer;padding:0 3px;font-size:1em}
+.file-list .acts button:hover{color:#fff}
+.rename-input{background:#333;border:1px solid #4a4;color:#e0e0e0;padding:2px 4px;border-radius:3px;font-size:0.88em;width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>dotclock</h1>
+<div class="status" id="status">Loading...</div>
+
+<!-- Time -->
+<div class="section">
+<h2>Clock</h2>
+<div class="row">
+<label>Time</label>
+<span id="clock">--:--</span>
+<button onclick="syncTime()" class="primary" style="margin-left:auto">Sync from phone</button>
+</div>
+</div>
+
+<!-- Alarm -->
+<div class="section">
+<h2>Alarm</h2>
+<div class="row">
+<label>Time</label>
+<input type="time" id="alm_time" onchange="saveAlarm()">
+<label class="toggle" style="margin-left:auto">
+<input type="checkbox" id="alm_en" onchange="saveAlarm()">
+<span class="slider"></span>
+</label>
+</div>
+<div class="row">
+<label>Sound</label>
+<select id="alm_file" onchange="saveAlarm()"></select>
+<button onclick="testAlarm()">Test</button>
+<button onclick="stopAlarm()" class="danger">Stop</button>
+</div>
+</div>
+
+<!-- Controls -->
+<div class="section">
+<h2>Controls</h2>
+<div class="row">
+<label>Brightness</label>
+<input type="range" min="1" max="24" id="bright" oninput="setBright(this.value)">
+<span class="val" id="bright_v">0</span>
+</div>
+<div class="row">
+<label>Volume</label>
+<input type="range" min="0" max="16" id="vol" oninput="setVol(this.value)">
+<span class="val" id="vol_v">0</span>
+</div>
+</div>
+
+<!-- WiFi -->
+<div class="section">
+<h2>WiFi Client</h2>
+<div class="row" id="wifi_status_row">
+<label>Status</label>
+<span id="wifi_status">Not connected</span>
+</div>
+<div class="row">
+<input type="text" id="wifi_ssid" placeholder="Network name">
+</div>
+<div class="row">
+<input type="text" id="wifi_pass" placeholder="Password">
+<button onclick="saveWifi()" class="primary">Connect</button>
+</div>
+</div>
+
+<!-- Files -->
+<div class="section">
+<h2>Files</h2>
+<div class="upload-area" id="dropzone">
+<p>Upload audio file</p>
+<p class="hint">Click or drag & drop (.mp3)</p>
+<input type="file" id="fileinput" accept=".mp3,audio/*">
+</div>
+<div class="progress" id="progress">
+<div class="progress-bar"><div class="progress-fill" id="progressfill"></div></div>
+</div>
+<ul class="file-list" id="filelist"></ul>
+</div>
+</div>
+
+<script>
+var st=document.getElementById('status');
+var almFile='';
+var settingsTimer=null;
+
+function setStatus(msg,ok){st.textContent=msg;st.className='status '+(ok?'ok':'err')}
+
+function post(url,body){return fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})}
+
+// --- Settings load ---
+function loadSettings(){
+  fetch('/settings').then(function(r){return r.json()}).then(function(s){
+    document.getElementById('bright').value=s.brightness;
+    document.getElementById('bright_v').textContent=s.brightness;
+    document.getElementById('vol').value=s.volume;
+    document.getElementById('vol_v').textContent=s.volume;
+    var t=(s.alarm_hour<10?'0':'')+s.alarm_hour+':'+(s.alarm_minute<10?'0':'')+s.alarm_minute;
+    document.getElementById('alm_time').value=t;
+    document.getElementById('alm_en').checked=s.alarm_enabled;
+    almFile=s.alarm_file;
+    document.getElementById('wifi_ssid').value=s.wifi_ssid;
+    document.getElementById('wifi_status').textContent=s.wifi_connected?'Connected':'Not connected';
+    if(s.time_set){
+      updateClock(s.time);
+    }else{
+      document.getElementById('clock').textContent='Not set';
+    }
+    loadFiles(s);
+    setStatus('Connected',true);
+
+    // Auto-sync time if not set
+    if(!s.time_set) syncTime();
+  }).catch(function(){setStatus('Cannot reach device',false)});
+}
+
+function updateClock(epoch){
+  var d=new Date(epoch*1000);
+  var h=d.getHours(),m=d.getMinutes();
+  document.getElementById('clock').textContent=(h<10?'0':'')+h+':'+(m<10?'0':'')+m;
+}
+
+// --- Controls ---
+function debouncePost(url,body){
+  if(settingsTimer) clearTimeout(settingsTimer);
+  settingsTimer=setTimeout(function(){post(url,body)},200);
+}
+
+function setBright(v){
+  document.getElementById('bright_v').textContent=v;
+  debouncePost('/settings','brightness='+v);
+}
+function setVol(v){
+  document.getElementById('vol_v').textContent=v;
+  debouncePost('/settings','volume='+v);
+}
+
+// --- Alarm ---
+function saveAlarm(){
+  var t=document.getElementById('alm_time').value;
+  if(!t)return;
+  var parts=t.split(':');
+  var en=document.getElementById('alm_en').checked;
+  var sel=document.getElementById('alm_file');
+  var file=sel.value||almFile;
+  post('/settings','alarm_hour='+parseInt(parts[0])+'&alarm_minute='+parseInt(parts[1])+
+    '&alarm_enabled='+(en?'1':'0')+'&alarm_file='+encodeURIComponent(file));
+  almFile=file;
+}
+function testAlarm(){post('/alarm/test')}
+function stopAlarm(){post('/alarm/stop')}
+
+// --- Time sync ---
+function syncTime(){
+  var epoch=Math.floor(Date.now()/1000);
+  var tz=new Date().getTimezoneOffset();
+  post('/time','epoch='+epoch+'&tz='+tz).then(function(r){
+    if(r.ok){setStatus('Time synced',true);updateClock(epoch)}
+    else setStatus('Time sync failed',false);
+  });
+}
+
+// --- WiFi ---
+function saveWifi(){
+  var ssid=document.getElementById('wifi_ssid').value;
+  var pass=document.getElementById('wifi_pass').value;
+  if(!ssid){setStatus('Enter SSID',false);return}
+  post('/wifi','ssid='+encodeURIComponent(ssid)+'&pass='+encodeURIComponent(pass))
+    .then(function(r){
+      if(r.ok) setStatus('Connecting to '+ssid+'...',true);
+      else setStatus('WiFi save failed',false);
+    });
+}
+
+// --- Files ---
+function loadFiles(settings){
+  fetch('/files').then(function(r){return r.json()}).then(function(files){
+    var fl=document.getElementById('filelist');
+    var sel=document.getElementById('alm_file');
+    fl.innerHTML='';
+    sel.innerHTML='';
+    if(!files.length){fl.innerHTML='<li>No files</li>';return}
+    files.forEach(function(f){
+      // File list item
+      var li=document.createElement('li');
+      var isAlm=(f.name===almFile);
+
+      li.innerHTML='<span class="alarm-sel'+(isAlm?' active':'')+'" title="Set as alarm">'+(isAlm?'\u2605':'\u2606')+'</span>'+
+        '<span class="name">'+f.name+'</span>'+
+        '<span class="size">'+(f.size>1024?(f.size/1024).toFixed(1)+'KB':f.size+'B')+'</span>'+
+        '<span class="acts"><button title="Rename">\u270E</button><button title="Delete">\u00D7</button></span>';
+
+      // Star = set as alarm
+      li.querySelector('.alarm-sel').onclick=function(){
+        almFile=f.name;
+        document.getElementById('alm_file').value=f.name;
+        saveAlarm();
+        loadSettings();
+      };
+
+      // Rename
+      li.querySelectorAll('.acts button')[0].onclick=function(){
+        var nameSpan=li.querySelector('.name');
+        var inp=document.createElement('input');
+        inp.className='rename-input';
+        inp.value=f.name;
+        nameSpan.replaceWith(inp);
+        inp.focus();
+        inp.select();
+        function doRename(){
+          var nv=inp.value.trim();
+          if(nv&&nv!==f.name){
+            fetch('/rename?from='+encodeURIComponent(f.name)+'&to='+encodeURIComponent(nv),{method:'POST'})
+              .then(function(r){
+                if(r.ok){
+                  if(almFile===f.name){almFile=nv;saveAlarm()}
+                  setStatus('Renamed to '+nv,true);loadSettings();
+                }else setStatus('Rename failed',false);
+              });
+          }else{
+            loadSettings();
+          }
+        }
+        inp.onkeydown=function(e){if(e.key==='Enter')doRename();if(e.key==='Escape')loadSettings()};
+        inp.onblur=doRename;
+      };
+
+      // Delete
+      li.querySelectorAll('.acts button')[1].onclick=function(){
+        if(confirm('Delete '+f.name+'?'))
+          fetch('/delete?file='+encodeURIComponent(f.name),{method:'POST'})
+            .then(function(r){if(r.ok){setStatus('Deleted '+f.name,true);loadSettings()}
+              else setStatus('Delete failed',false)});
+      };
+
+      fl.appendChild(li);
+
+      // Alarm file dropdown
+      var opt=document.createElement('option');
+      opt.value=f.name;opt.textContent=f.name;
+      if(f.name===almFile) opt.selected=true;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+// --- Upload ---
+function upload(file){
+  var xhr=new XMLHttpRequest();
+  var formData=new FormData();
+  formData.append('file',file,file.name);
+  var pg=document.getElementById('progress'),pf=document.getElementById('progressfill');
+  pg.style.display='block';pf.style.width='0%';
+  xhr.upload.onprogress=function(e){if(e.lengthComputable)pf.style.width=(e.loaded/e.total*100)+'%'};
+  xhr.onload=function(){
+    pg.style.display='none';
+    if(xhr.status===200){setStatus('Uploaded '+file.name,true);loadSettings()}
+    else setStatus('Upload failed: '+xhr.responseText,false);
+  };
+  xhr.onerror=function(){pg.style.display='none';setStatus('Upload failed',false)};
+  xhr.open('POST','/upload');
+  xhr.send(formData);
+}
+
+var dz=document.getElementById('dropzone'),fi=document.getElementById('fileinput');
+dz.onclick=function(){fi.click()};
+fi.onchange=function(){if(fi.files[0])upload(fi.files[0]);fi.value=''};
+dz.ondragover=function(e){e.preventDefault();dz.classList.add('drag')};
+dz.ondragleave=function(){dz.classList.remove('drag')};
+dz.ondrop=function(e){e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])upload(e.dataTransfer.files[0])};
+
+// --- Poll clock every 5s ---
+setInterval(function(){
+  fetch('/settings').then(function(r){return r.json()}).then(function(s){
+    if(s.time_set) updateClock(s.time);
+    document.getElementById('wifi_status').textContent=s.wifi_connected?'Connected':'Not connected';
+  }).catch(function(){});
+},5000);
+
+loadSettings();
+</script>
+</body>
+</html>
