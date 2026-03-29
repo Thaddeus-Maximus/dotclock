@@ -243,6 +243,11 @@ void app_main(void)
 			case MODE_TIME:
 				if (alarm_is_ringing()) {
 					alarm_dismiss();
+				} else {
+					int bri = settings_get_brightness() + delta;
+					if (bri < 1) bri = 1;
+					if (bri > DISPLAY_BRIGHTNESS_MAX) bri = DISPLAY_BRIGHTNESS_MAX;
+					settings_set_brightness(bri);
 				}
 				break;
 
@@ -267,14 +272,14 @@ void app_main(void)
 			}
 
 			case MODE_ALARM: {
-				int step = enc.fast ? 15 : 1;
-				adjust_alarm_time(delta * step);
+				static const int step_table[] = {1, 5, 15};
+				adjust_alarm_time(delta * step_table[enc.speed]);
 				break;
 			}
 
 			case MODE_SET_TIME: {
-				int step = enc.fast ? 15 : 1;
-				adjust_system_time(delta * step);
+				static const int step_table[] = {1, 5, 15};
+				adjust_system_time(delta * step_table[enc.speed]);
 				break;
 			}
 

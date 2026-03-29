@@ -18,14 +18,15 @@ static inline uint32_t IRAM_ATTR gpio_read_iram(gpio_num_t pin)
 static volatile int32_t raw_count = 0;
 static volatile uint8_t prev_ab = 0;
 
-// Ring buffer of recent edge timestamps for velocity smoothing
-#define EDGE_BUF_SIZE 6
-static volatile int64_t edge_times[EDGE_BUF_SIZE] = {0};
-static volatile uint8_t edge_idx = 0;
-static volatile uint8_t edge_count = 0;  // how many valid entries
+// Edge timestamps for velocity measurement
+static volatile int64_t edge_time_prev = 0;
+static volatile int64_t edge_time_last = 0;
 
-// Velocity threshold: detents/sec above which we consider "fast"
-#define FAST_THRESHOLD 100
+// Speed tier thresholds (detents/sec)
+#define SPEED_THRESH_MED   80   // not ~1 rev/s on 15-detent PEC09
+#define SPEED_THRESH_FAST  300  // not ~2 rev/s
+#define SPEED_HYST          5   // hysteresis band
+#define STALENESS_US   150000   // 150ms: assume stopped
 
 // Direction invert
 static bool inverted = false;
@@ -61,10 +62,8 @@ static void IRAM_ATTR encoder_isr(void *arg)
 		raw_count += delta;
 
 		int64_t now = esp_timer_get_time();
-		edge_times[edge_idx] = now;
-		edge_idx = (edge_idx + 1) % EDGE_BUF_SIZE;
-		if (edge_count < EDGE_BUF_SIZE)
-			edge_count++;
+		edge_time_prev = edge_time_last;
+		edge_time_last = now;
 	}
 }
 
@@ -125,47 +124,64 @@ void encoder_set_invert(bool invert)
 
 static portMUX_TYPE enc_mux = portMUX_INITIALIZER_UNLOCKED;
 
+// EMA + hysteresis state (only accessed from encoder_read, not ISR)
+static int32_t ema_speed = 0;      // fixed-point x256
+static uint8_t last_tier = 0;
+
 encoder_state_t encoder_read(void)
 {
 	// Snapshot volatile state
 	portENTER_CRITICAL(&enc_mux);
 	int32_t raw = raw_count;
-	int64_t times[EDGE_BUF_SIZE];
-	uint8_t count = edge_count;
-	uint8_t idx = edge_idx;
+	int64_t t_prev = edge_time_prev;
+	int64_t t_last = edge_time_last;
 	bool pressed = btn_state;
 	bool changed = btn_changed;
 	btn_changed = false;
-	for (int i = 0; i < EDGE_BUF_SIZE; i++)
-		times[i] = edge_times[i];
 	portEXIT_CRITICAL(&enc_mux);
 
 	int32_t position = inverted ? -(raw / 2) : (raw / 2);
 
-	// Compute smoothed speed from the ring buffer.
-	// Average the interval across the last EDGE_BUF_SIZE edges,
-	// but only if the most recent edge is fresh (< 250ms old).
-	bool fast = false;
-	if (count >= EDGE_BUF_SIZE) {
-		// Most recent edge
-		uint8_t newest = (idx + EDGE_BUF_SIZE - 1) % EDGE_BUF_SIZE;
-		uint8_t oldest = idx;  // oldest in the full ring
-		int64_t now = esp_timer_get_time();
-		int64_t age = now - times[newest];
+	// Compute instantaneous speed from last two edges
+	int64_t now = esp_timer_get_time();
+	int64_t age = t_last > 0 ? now - t_last : STALENESS_US;
+	int32_t inst_speed = 0;
 
-		if (age < 250000) {
-			int64_t span = times[newest] - times[oldest];
-			if (span > 0) {
-				// edges per second, then convert to detents/sec (2 edges per detent)
-				int32_t speed = (int32_t)((int64_t)(EDGE_BUF_SIZE - 1) * 500000 / span);
-				fast = (speed >= FAST_THRESHOLD);
-			}
-		}
+	if (t_prev > 0 && t_last > t_prev && age < STALENESS_US) {
+		int64_t interval = t_last - t_prev;
+		// 2 edges per detent: detents/sec = 500000 / interval_us
+		inst_speed = (int32_t)(500000 / interval);
 	}
+
+	// EMA smoothing (fixed-point x256, alpha ~= 0.25)
+	if (age >= STALENESS_US) {
+		// Stopped: reset immediately
+		ema_speed = 0;
+	} else {
+		ema_speed = (ema_speed * 3 + inst_speed * 256) / 4;
+	}
+	int32_t smooth = ema_speed / 256;
+
+	// Classify speed tier with hysteresis
+	uint8_t tier = last_tier;
+	if (tier == 0) {
+		if (smooth >= SPEED_THRESH_MED + SPEED_HYST)
+			tier = 1;
+	} else if (tier == 1) {
+		if (smooth < SPEED_THRESH_MED - SPEED_HYST)
+			tier = 0;
+		else if (smooth >= SPEED_THRESH_FAST + SPEED_HYST)
+			tier = 2;
+	} else {
+		if (smooth < SPEED_THRESH_FAST - SPEED_HYST)
+			tier = 1;
+	}
+	last_tier = tier;
 
 	return (encoder_state_t){
 		.position = position,
-		.fast = fast,
+		.speed = tier,
+		.fast = (tier >= 2),
 		.button = pressed,
 		.button_changed = changed,
 	};
