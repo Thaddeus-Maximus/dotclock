@@ -66,6 +66,11 @@ input[type=file]{display:none}
 <span id="clock">--:--</span>
 <button onclick="syncTime()" class="primary" style="margin-left:auto">Sync from phone</button>
 </div>
+<div class="row">
+<label>Timezone</label>
+<select id="tz_sel" onchange="setTz()" style="flex:1"></select>
+<button onclick="detectTz()">Detect</button>
+</div>
 </div>
 
 <!-- Alarm -->
@@ -99,6 +104,25 @@ input[type=file]{display:none}
 <label>Volume</label>
 <input type="range" min="0" max="16" id="vol" oninput="setVol(this.value)">
 <span class="val" id="vol_v">0</span>
+</div>
+</div>
+
+<!-- Hardware -->
+<div class="section">
+<h2>Hardware</h2>
+<div class="row">
+<label>Flip display</label>
+<label class="toggle" style="margin-left:auto">
+<input type="checkbox" id="disp_flip" onchange="setFlip()">
+<span class="slider"></span>
+</label>
+</div>
+<div class="row">
+<label>Invert knob</label>
+<label class="toggle" style="margin-left:auto">
+<input type="checkbox" id="enc_inv" onchange="setFlip()">
+<span class="slider"></span>
+</label>
 </div>
 </div>
 
@@ -153,6 +177,9 @@ function loadSettings(){
     document.getElementById('alm_time').value=t;
     document.getElementById('alm_en').checked=s.alarm_enabled;
     almFile=s.alarm_file;
+    document.getElementById('tz_sel').value=s.tz_offset;
+    document.getElementById('disp_flip').checked=s.display_flip;
+    document.getElementById('enc_inv').checked=s.encoder_invert;
     document.getElementById('wifi_ssid').value=s.wifi_ssid;
     document.getElementById('wifi_status').textContent=s.wifi_connected?'Connected':'Not connected';
     if(s.time_set){
@@ -201,13 +228,55 @@ function saveAlarm(){
     '&alarm_enabled='+(en?'1':'0')+'&alarm_file='+encodeURIComponent(file));
   almFile=file;
 }
+function setFlip(){
+  var df=document.getElementById('disp_flip').checked;
+  var ei=document.getElementById('enc_inv').checked;
+  post('/settings','display_flip='+(df?'1':'0')+'&encoder_invert='+(ei?'1':'0'));
+}
 function testAlarm(){post('/alarm/test')}
 function stopAlarm(){post('/alarm/stop')}
+
+// --- Timezone ---
+function buildTzOptions(){
+  var sel=document.getElementById('tz_sel');
+  // tz values use getTimezoneOffset convention: positive=west, negative=east
+  // iterate from UTC-12 (tz=720) to UTC+14 (tz=-840) in 30-min steps
+  for(var tz=720;tz>=-840;tz-=30){
+    var opt=document.createElement('option');
+    opt.value=tz;
+    var utc=-tz; // minutes east of UTC
+    var sign=utc>=0?'+':'-';
+    var h=Math.floor(Math.abs(utc)/60);
+    var m=Math.abs(utc)%60;
+    opt.textContent='UTC'+sign+(h<10?'0':'')+h+':'+(m<10?'0':'')+m;
+    sel.appendChild(opt);
+  }
+}
+function setTz(){
+  var tz=document.getElementById('tz_sel').value;
+  post('/settings','tz_offset='+tz);
+}
+function detectTz(){
+  var tz=new Date().getTimezoneOffset();
+  var sel=document.getElementById('tz_sel');
+  // add option if exact offset isn't in the list
+  if(!sel.querySelector('option[value="'+tz+'"]')){
+    var opt=document.createElement('option');
+    opt.value=tz;
+    var utc=-tz,sign=utc>=0?'+':'-';
+    var h=Math.floor(Math.abs(utc)/60),m=Math.abs(utc)%60;
+    opt.textContent='UTC'+sign+(h<10?'0':'')+h+':'+(m<10?'0':'')+m;
+    sel.appendChild(opt);
+  }
+  sel.value=tz;
+  setTz();
+}
+buildTzOptions();
 
 // --- Time sync ---
 function syncTime(){
   var epoch=Math.floor(Date.now()/1000);
-  var tz=new Date().getTimezoneOffset();
+  var tz=document.getElementById('tz_sel').value;
   post('/time','epoch='+epoch+'&tz='+tz).then(function(r){
     if(r.ok){setStatus('Time synced',true);updateClock(epoch)}
     else setStatus('Time sync failed',false);

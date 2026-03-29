@@ -26,6 +26,7 @@ static esp_timer_handle_t pwm_timer;
 static volatile uint8_t pwm_duty = 0;   // 0-8: out of 8 ticks ON
 static volatile uint8_t pwm_phase = 0;  // current tick counter
 static uint8_t current_brightness = 1;
+static bool flipped = false;
 
 /*
 // 3x5 font — commented out, using 3x6 font exclusively
@@ -112,6 +113,7 @@ static const uint8_t font_3x6[][3] = {
 	[35] = { 0x33, 0x0C, 0x33 },  // X  #.# #.# .#. .#. #.# #.#
 	[36] = { 0x03, 0x3C, 0x03 },  // Y  #.# #.# .#. .#. .#. .#.
 	[37] = { 0x39, 0x25, 0x23 },  // Z  ### ..# .#. #.. #.. ###
+	[38] = { 0x00, 0x20, 0x00 },  // .  (dot)
 };
 
 static int char_to_glyph(char c)
@@ -120,6 +122,7 @@ static int char_to_glyph(char c)
 	if (c >= 'a' && c <= 'z') return 12 + (c - 'a');
 	if (c >= 'A' && c <= 'Z') return 12 + (c - 'A');
 	if (c == '-') return 10;
+	if (c == '.') return 38;
 	return 11;  // space / unknown
 }
 
@@ -238,6 +241,20 @@ void display_invert(void)
 		framebuf[i] ^= 0xFF;
 }
 
+void display_set_flip(bool flip)
+{
+	flipped = flip;
+}
+
+// Reverse bits in a byte (mirror columns within a module)
+static uint8_t reverse_byte(uint8_t b)
+{
+	b = ((b & 0xF0) >> 4) | ((b & 0x0F) << 4);
+	b = ((b & 0xCC) >> 2) | ((b & 0x33) << 2);
+	b = ((b & 0xAA) >> 1) | ((b & 0x55) << 1);
+	return b;
+}
+
 void display_update(void)
 {
 	// MAX7219 digits 0-7 correspond to rows 0-7.
@@ -245,8 +262,18 @@ void display_update(void)
 	// FC-16 layout: module 0 is leftmost, columns go left to right.
 	for (int row = 0; row < 8; row++) {
 		uint8_t vals[DISPLAY_NUM_MODULES];
-		for (int m = 0; m < DISPLAY_NUM_MODULES; m++) {
-			vals[m] = framebuf[m * 8 + row];
+		if (flipped) {
+			// 180-degree rotation: reverse row order, reverse module
+			// order, and mirror bits within each module
+			int src_row = 7 - row;
+			for (int m = 0; m < DISPLAY_NUM_MODULES; m++) {
+				vals[m] = reverse_byte(
+					framebuf[(DISPLAY_NUM_MODULES - 1 - m) * 8 + src_row]);
+			}
+		} else {
+			for (int m = 0; m < DISPLAY_NUM_MODULES; m++) {
+				vals[m] = framebuf[m * 8 + row];
+			}
 		}
 		send_all(REG_DIGIT0 + row, vals);
 	}
@@ -339,7 +366,7 @@ void display_text(const char *str)
 // Draw a 3x6 glyph at position (x, y)
 static void draw_glyph_3x6(int x, int y, int glyph_idx)
 {
-	if (glyph_idx < 0 || glyph_idx > 37) return;
+	if (glyph_idx < 0 || glyph_idx > 38) return;
 	const uint8_t *glyph = font_3x6[glyph_idx];
 	for (int col = 0; col < 3; col++) {
 		uint8_t bits = glyph[col];
@@ -399,6 +426,7 @@ static const uint8_t icons[][8] = {
 	[DISPLAY_ICON_SET_TIME]   = { 0x40,0x5E,0x42,0x42,0x20,0x10,0x0F,0x00 },
 	[DISPLAY_ICON_VOLUME]     = { 0x18,0x3C,0x7E,0x00,0x5A,0x42,0x3C,0x00 },
 	[DISPLAY_ICON_BRIGHTNESS] = { 0x00, 0x3C, 0x7E, 0x7E, 0x42, 0x42, 0x3C, 0x00 },
+	[DISPLAY_ICON_NETWORK]    = { 0x00, 0x0F, 0x00, 0x1F, 0x00, 0x3F, 0x00, 0x7F },
 };
 
 // Draw an 8x8 icon on panel 0 (cols 0-7)
@@ -459,5 +487,25 @@ void display_icon_text(display_icon_t icon, const char *str)
 	for (int i = 0; str[i]; i++) {
 		draw_glyph_3x6(x, y, char_to_glyph(str[i]));
 		x += 4;
+	}
+}
+
+int display_text_width(const char *str)
+{
+	int len = 0;
+	for (const char *p = str; *p; p++) len++;
+	return len > 0 ? len * 4 - 1 : 0;
+}
+
+void display_text_scroll(const char *str, int pixel_offset)
+{
+	display_clear();
+	int y = 1;
+	int x = -pixel_offset;
+	for (int i = 0; str[i]; i++) {
+		if (x + 3 >= 0 && x < DISPLAY_WIDTH)
+			draw_glyph_3x6(x, y, char_to_glyph(str[i]));
+		x += 4;
+		if (x >= DISPLAY_WIDTH) break;
 	}
 }

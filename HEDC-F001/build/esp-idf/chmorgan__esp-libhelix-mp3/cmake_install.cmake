@@ -1,4 +1,4 @@
-# Install script for directory: C:/data/projects/dotclock/HEDC-F001/managed_components/chmorgan__esp-libhelix-mp3
+# Install script for directory: C:/data/git/dotclock/HEDC-F001/managed_components/chmorgan__esp-libhelix-mp3
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -31,6 +31,7 @@ static const char *TAG = "webserver";
 
 static httpd_handle_t server = NULL;
 static bool sta_connected = false;
+static esp_netif_t *sta_netif = NULL;
 
 // Declared in alarm.c
 extern bool time_is_set(void);
@@ -323,6 +324,8 @@ static esp_err_t settings_get_handler(httpd_req_t *req)
 		"{\"brightness\":%d,\"volume\":%d,"
 		"\"alarm_hour\":%d,\"alarm_minute\":%d,"
 		"\"alarm_enabled\":%s,\"alarm_file\":\"%s\","
+		"\"display_flip\":%s,\"encoder_invert\":%s,"
+		"\"tz_offset\":%d,"
 		"\"wifi_ssid\":\"%s\",\"wifi_connected\":%s,"
 		"\"time_set\":%s,\"time\":%lld}",
 		settings_get_brightness(),
@@ -331,6 +334,9 @@ static esp_err_t settings_get_handler(httpd_req_t *req)
 		settings_get_alarm_minute(),
 		settings_get_alarm_enabled() ? "true" : "false",
 		settings_get_alarm_file(),
+		settings_get_display_flip() ? "true" : "false",
+		settings_get_encoder_invert() ? "true" : "false",
+		settings_get_tz_offset(),
 		ssid,
 		sta_connected ? "true" : "false",
 		time_is_set() ? "true" : "false",
@@ -372,6 +378,15 @@ static esp_err_t settings_post_handler(httpd_req_t *req)
 	if (parse_form_value(body, "alarm_file", val, sizeof(val)))
 		settings_set_alarm_file(val);
 
+	if (parse_form_value(body, "tz_offset", val, sizeof(val)))
+		settings_set_tz_offset(atoi(val));
+
+	if (parse_form_value(body, "display_flip", val, sizeof(val)))
+		settings_set_display_flip(strcmp(val, "1") == 0 || strcmp(val, "true") == 0);
+
+	if (parse_form_value(body, "encoder_invert", val, sizeof(val)))
+		settings_set_encoder_invert(strcmp(val, "1") == 0 || strcmp(val, "true") == 0);
+
 	httpd_resp_sendstr(req, "OK");
 	return ESP_OK;
 }
@@ -388,9 +403,9 @@ static esp_err_t time_post_handler(httpd_req_t *req)
 
 	char val[20];
 
-	// Set timezone first (from browser's getTimezoneOffset)
+	// Set timezone first (from browser's getTimezoneOffset), persist to NVS
 	if (parse_form_value(body, "tz", val, sizeof(val))) {
-		time_set_tz(atoi(val));
+		settings_set_tz_offset(atoi(val));
 	}
 
 	if (parse_form_value(body, "epoch", val, sizeof(val))) {
@@ -537,7 +552,7 @@ static void launch_softap(void)
 	esp_netif_init();
 	esp_event_loop_create_default();
 	esp_netif_create_default_wifi_ap();
-	esp_netif_create_default_wifi_sta();
+	sta_netif = esp_netif_create_default_wifi_sta();
 
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	esp_wifi_init(&cfg);
@@ -589,5 +604,28 @@ void webserver_try_sta_connect(void)
 	settings_get_wifi(ssid, sizeof(ssid), pass, sizeof(pass));
 	if (ssid[0]) {
 		do_sta_connect(ssid, pass);
+	}
+}
+
+bool webserver_is_sta_connected(void)
+{
+	return sta_connected;
+}
+
+void webserver_get_sta_ip(char *buf, size_t len)
+{
+	if (!sta_connected || !sta_netif) {
+		snprintf(buf, len, "no wifi");
+		return;
+	}
+	esp_netif_ip_info_t ip_info;
+	if (esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK) {
+		snprintf(buf, len, "%d.%d.%d.%d",
+			(int)((ip_info.ip.addr >>  0) & 0xFF),
+			(int)((ip_info.ip.addr >>  8) & 0xFF),
+			(int)((ip_info.ip.addr >> 16) & 0xFF),
+			(int)((ip_info.ip.addr >> 24) & 0xFF));
+	} else {
+		snprintf(buf, len, "no wifi");
 	}
 }

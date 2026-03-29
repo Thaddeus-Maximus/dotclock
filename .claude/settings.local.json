@@ -6,7 +6,9 @@
       "WebFetch(domain:cmorgan.org)",
       "WebFetch(domain:www.pschatzmann.ch)",
       "WebFetch(domain:components.espressif.com)",
-      "Bash(find /c/data/projects/dotclock -type f -name *audio* -o -name *dac* -o -name *mp3*)"
+      "Bash(find /c/data/projects/dotclock -type f -name *audio* -o -name *dac* -o -name *mp3*)",
+      "Bash(grep -E \"\\\\.\\(cpp|h|html\\)$\")",
+      "Bash(grep -r \"SSD1306\\\\|MAX7219\\\\|spi\\\\|display_init\" /c/data/git/dotclock/HEDC-F001/main/*.c)"
     ]
   }
 }

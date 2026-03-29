@@ -26,6 +26,16 @@ bool settings_get_alarm_enabled(void);
 void settings_set_alarm_file(const char *filename);
 const char *settings_get_alarm_file(void);
 
+// Timezone offset (minutes, from JS getTimezoneOffset)
+void settings_set_tz_offset(int offset_minutes);
+int settings_get_tz_offset(void);
+
+// Display flip (180 degree rotation) and encoder direction invert
+void settings_set_display_flip(bool flip);
+bool settings_get_display_flip(void);
+void settings_set_encoder_invert(bool invert);
+bool settings_get_encoder_invert(void);
+
 // WiFi STA credentials
 void settings_set_wifi(const char *ssid, const char *pass);
 void settings_get_wifi(char *ssid, size_t ssid_len, char *pass, size_t pass_len);

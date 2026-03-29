@@ -1,6 +1,6 @@
 /* Automatically generated file; DO NOT EDIT */
 /* Espressif IoT Development Framework Linker Script */
-/* Generated from: C:\data\projects\dotclock\HEDC-F001\build\esp-idf\esp_system\ld\sections.ld.in */
+/* Generated from: C:\data\git\dotclock\HEDC-F001\build\esp-idf\esp_system\ld\sections.ld.in */
 
 /*
 

@@ -5,7 +5,10 @@
 #include "nvs.h"
 #include "esp_log.h"
 #include "display.h"
+#include "encoder.h"
 #include "audio.h"
+
+extern void time_set_tz(int offset_minutes);
 
 static const char *TAG = "settings";
 #define NVS_NAMESPACE "dotclock"
@@ -16,6 +19,9 @@ static uint8_t alarm_hour = 7;
 static uint8_t alarm_minute = 0;
 static bool alarm_enabled = false;
 static char alarm_file[64] = "alarm.mp3";
+static int tz_offset = 0;
+static bool display_flip = false;
+static bool encoder_invert = false;
 static char wifi_ssid[33] = "";
 static char wifi_pass[64] = "";
 
@@ -35,6 +41,27 @@ static uint8_t load_u8(const char *key, uint8_t def)
 	uint8_t val = def;
 	if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &h) == ESP_OK) {
 		nvs_get_u8(h, key, &val);
+		nvs_close(h);
+	}
+	return val;
+}
+
+static void save_i16(const char *key, int16_t val)
+{
+	nvs_handle_t h;
+	if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h) == ESP_OK) {
+		nvs_set_i16(h, key, val);
+		nvs_commit(h);
+		nvs_close(h);
+	}
+}
+
+static int16_t load_i16(const char *key, int16_t def)
+{
+	nvs_handle_t h;
+	int16_t val = def;
+	if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &h) == ESP_OK) {
+		nvs_get_i16(h, key, &val);
 		nvs_close(h);
 	}
 	return val;
@@ -74,11 +101,20 @@ void settings_init(void)
 	alarm_minute = load_u8("alm_min", 0);
 	alarm_enabled = load_u8("alm_en", 0) != 0;
 	load_str("alm_file", alarm_file, sizeof(alarm_file), "alarm.mp3");
+	tz_offset = load_i16("tz_off", 0);
+	display_flip = load_u8("disp_flip", 0) != 0;
+	encoder_invert = load_u8("enc_inv", 0) != 0;
 	load_str("wifi_ssid", wifi_ssid, sizeof(wifi_ssid), "");
 	load_str("wifi_pass", wifi_pass, sizeof(wifi_pass), "");
 
 	display_set_brightness(brightness);
+	display_set_flip(display_flip);
+	encoder_set_invert(encoder_invert);
 	audio_set_volume(volume);
+
+	// Restore timezone so localtime works correctly before browser sync
+	if (tz_offset != 0)
+		time_set_tz(tz_offset);
 
 	ESP_LOGI(TAG, "Settings loaded: bright=%d vol=%d alarm=%02d:%02d %s file=%s",
 	         brightness, volume, alarm_hour, alarm_minute,
@@ -154,6 +190,42 @@ void settings_set_alarm_file(const char *filename)
 const char *settings_get_alarm_file(void)
 {
 	return alarm_file;
+}
+
+void settings_set_tz_offset(int offset_minutes)
+{
+	tz_offset = offset_minutes;
+	save_i16("tz_off", (int16_t)offset_minutes);
+	time_set_tz(offset_minutes);
+}
+
+int settings_get_tz_offset(void)
+{
+	return tz_offset;
+}
+
+void settings_set_display_flip(bool flip)
+{
+	display_flip = flip;
+	display_set_flip(flip);
+	save_u8("disp_flip", flip ? 1 : 0);
+}
+
+bool settings_get_display_flip(void)
+{
+	return display_flip;
+}
+
+void settings_set_encoder_invert(bool invert)
+{
+	encoder_invert = invert;
+	encoder_set_invert(invert);
+	save_u8("enc_inv", invert ? 1 : 0);
+}
+
+bool settings_get_encoder_invert(void)
+{
+	return encoder_invert;
 }
 
 void settings_set_wifi(const char *ssid, const char *pass)

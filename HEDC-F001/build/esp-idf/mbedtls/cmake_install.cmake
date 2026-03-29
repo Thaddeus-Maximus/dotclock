@@ -39,6 +39,6 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/data/projects/dotclock/HEDC-F001/build/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
+  include("C:/data/git/dotclock/HEDC-F001/build/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
 endif()
 

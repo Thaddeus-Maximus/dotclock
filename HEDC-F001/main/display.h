@@ -17,6 +17,7 @@
 #define DISPLAY_BRIGHTNESS_MAX 24
 
 void display_init(void);
+void display_set_flip(bool flip);            // rotate display 180 degrees
 void display_set_brightness(uint8_t level);  // 0 to DISPLAY_BRIGHTNESS_MAX
 uint8_t display_get_brightness(void);
 void display_clear(void);
@@ -33,8 +34,11 @@ typedef enum {
 	DISPLAY_ICON_SET_TIME,
 	DISPLAY_ICON_VOLUME,
 	DISPLAY_ICON_BRIGHTNESS,
+	DISPLAY_ICON_NETWORK,
 } display_icon_t;
 
 void display_icon_time(display_icon_t icon, uint8_t hour, uint8_t minute);  // icon + HHMM
 void display_icon_number(display_icon_t icon, int num);                      // icon + number
 void display_icon_text(display_icon_t icon, const char *str);                // icon + text
+int display_text_width(const char *str);                                      // pixel width of string
+void display_text_scroll(const char *str, int pixel_offset);                  // full-width scrolling text

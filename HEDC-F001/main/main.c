@@ -23,6 +23,7 @@ typedef enum {
 	MODE_BRIGHTNESS,
 	MODE_ALARM,
 	MODE_SET_TIME,
+	MODE_NETWORK,
 	MODE_COUNT
 } ui_mode_t;
 
@@ -109,6 +110,12 @@ static void on_mode_change(ui_mode_t prev, ui_mode_t next)
 	}
 }
 
+// Network mode scroll state
+static int net_scroll_offset = 0;
+static int net_scroll_timer = 0;
+#define NET_SCROLL_RATE  6   // pixels per tick (60ms per pixel at 10ms loop)
+#define NET_SCROLL_PAUSE 40  // ticks to pause at start/end (400ms)
+
 // Show the current value for the active mode
 static void show_mode_value(ui_mode_t mode)
 {
@@ -145,6 +152,35 @@ static void show_mode_value(ui_mode_t mode)
 		struct tm tm;
 		localtime_r(&now, &tm);
 		display_icon_time(DISPLAY_ICON_SET_TIME, tm.tm_hour, tm.tm_min);
+		break;
+	}
+	case MODE_NETWORK: {
+		char info[32];
+		webserver_get_sta_ip(info, sizeof(info));
+		int text_w = display_text_width(info);
+		if (text_w <= DISPLAY_WIDTH) {
+			display_text(info);
+			net_scroll_offset = 0;
+			net_scroll_timer = 0;
+		} else {
+			int max_scroll = text_w - DISPLAY_WIDTH;
+			net_scroll_timer++;
+			if (net_scroll_timer >= NET_SCROLL_RATE) {
+				net_scroll_timer = 0;
+				net_scroll_offset++;
+			}
+			// Total cycle: pause + scroll + pause + reset
+			int total = NET_SCROLL_PAUSE + max_scroll + NET_SCROLL_PAUSE;
+			int phase = net_scroll_offset % total;
+			int offset;
+			if (phase < NET_SCROLL_PAUSE)
+				offset = 0;
+			else if (phase < NET_SCROLL_PAUSE + max_scroll)
+				offset = phase - NET_SCROLL_PAUSE;
+			else
+				offset = max_scroll;
+			display_text_scroll(info, offset);
+		}
 		break;
 	}
 	default:
@@ -191,6 +227,10 @@ void app_main(void)
 				mode = (mode + 1) % MODE_COUNT;
 				on_mode_change(prev, mode);
 				idle_count = 0;
+				if (mode == MODE_NETWORK) {
+					net_scroll_offset = 0;
+					net_scroll_timer = 0;
+				}
 			}
 			show_mode_value(mode);
 		}

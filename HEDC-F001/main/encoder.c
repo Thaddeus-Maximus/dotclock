@@ -27,6 +27,9 @@ static volatile uint8_t edge_count = 0;  // how many valid entries
 // Velocity threshold: detents/sec above which we consider "fast"
 #define FAST_THRESHOLD 100
 
+// Direction invert
+static bool inverted = false;
+
 // Button state
 static volatile bool btn_raw = false;
 static volatile bool btn_state = false;
@@ -115,6 +118,11 @@ void encoder_init(void)
 	gpio_isr_handler_add(ENC_PIN_SW, button_isr, NULL);
 }
 
+void encoder_set_invert(bool invert)
+{
+	inverted = invert;
+}
+
 static portMUX_TYPE enc_mux = portMUX_INITIALIZER_UNLOCKED;
 
 encoder_state_t encoder_read(void)
@@ -132,7 +140,7 @@ encoder_state_t encoder_read(void)
 		times[i] = edge_times[i];
 	portEXIT_CRITICAL(&enc_mux);
 
-	int32_t position = raw / 2;
+	int32_t position = inverted ? -(raw / 2) : (raw / 2);
 
 	// Compute smoothed speed from the ring buffer.
 	// Average the interval across the last EDGE_BUF_SIZE edges,

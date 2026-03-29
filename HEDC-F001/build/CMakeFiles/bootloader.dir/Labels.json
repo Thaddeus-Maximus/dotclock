@@ -2,34 +2,34 @@
 	"sources" : 
 	[
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/CMakeFiles/bootloader"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/CMakeFiles/bootloader"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/CMakeFiles/bootloader.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/CMakeFiles/bootloader.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/CMakeFiles/bootloader-complete.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/CMakeFiles/bootloader-complete.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
 		},
 		{
-			"file" : "C:/data/projects/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
+			"file" : "C:/data/git/dotclock/HEDC-F001/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
 		}
 	],
 	"target" : 
