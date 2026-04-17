@@ -178,10 +178,12 @@ encoder_state_t encoder_read(void)
 	}
 	last_tier = tier;
 
+	(void)tier;  // multispeed disabled — always slow
+
 	return (encoder_state_t){
 		.position = position,
-		.speed = tier,
-		.fast = (tier >= 2),
+		.speed = 0,
+		.fast = false,
 		.button = pressed,
 		.button_changed = changed,
 	};

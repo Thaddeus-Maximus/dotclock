@@ -150,13 +150,6 @@ C:/data/git/dotclock/HEDC-F001/build/esp-idf/esp_bootloader_format/CMakeFiles/in
 C:/data/git/dotclock/HEDC-F001/build/esp-idf/esp_bootloader_format/CMakeFiles/install/local.dir
 C:/data/git/dotclock/HEDC-F001/build/esp-idf/esp_bootloader_format/CMakeFiles/install/strip.dir
 C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/__idf_app_update.dir
-C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/blank_ota_data.dir
-C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/read-otadata.dir
-C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/read_otadata.dir
-C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/erase-otadata.dir
-C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/erase_otadata.dir
-C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/otadata-flash.dir
-C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/encrypted-otadata-flash.dir
 C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/edit_cache.dir
 C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/rebuild_cache.dir
 C:/data/git/dotclock/HEDC-F001/build/esp-idf/app_update/CMakeFiles/list_install_components.dir

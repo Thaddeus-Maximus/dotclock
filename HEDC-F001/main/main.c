@@ -19,9 +19,9 @@ extern void time_set_epoch(int64_t epoch);
 
 typedef enum {
 	MODE_TIME,
+	MODE_ALARM,
 	MODE_VOLUME,
 	MODE_BRIGHTNESS,
-	MODE_ALARM,
 	MODE_SET_TIME,
 	MODE_NETWORK,
 	MODE_COUNT
@@ -107,6 +107,12 @@ static void on_mode_change(ui_mode_t prev, ui_mode_t next)
 	} else if (prev == MODE_VOLUME && next != MODE_VOLUME) {
 		// Leaving volume mode: stop preview
 		audio_stop();
+	}
+
+	if (next == MODE_NETWORK && prev != MODE_NETWORK) {
+		webserver_set_ap_enabled(true);
+	} else if (prev == MODE_NETWORK && next != MODE_NETWORK) {
+		webserver_set_ap_enabled(false);
 	}
 }
 
@@ -290,9 +296,9 @@ void app_main(void)
 			show_mode_value(mode);
 		}
 
-		// --- Idle timeout: return to time mode ---
+		// --- Idle timeout: return to time mode (suspended in network mode) ---
 		idle_count++;
-		if (mode != MODE_TIME && idle_count > IDLE_TIMEOUT) {
+		if (mode != MODE_TIME && mode != MODE_NETWORK && idle_count > IDLE_TIMEOUT) {
 			on_mode_change(mode, MODE_TIME);
 			mode = MODE_TIME;
 		}

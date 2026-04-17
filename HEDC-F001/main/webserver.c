@@ -31,7 +31,9 @@ static const char *TAG = "webserver";
 
 static httpd_handle_t server = NULL;
 static bool sta_connected = false;
+static bool ap_enabled = false;
 static esp_netif_t *sta_netif = NULL;
+static esp_netif_t *ap_netif = NULL;
 
 // Declared in alarm.c
 extern bool time_is_set(void);
@@ -443,9 +445,6 @@ static void do_sta_connect(const char *ssid, const char *pass)
 {
 	if (!ssid[0]) return;
 
-	// Switch to AP+STA mode
-	esp_wifi_set_mode(WIFI_MODE_APSTA);
-
 	wifi_config_t sta_cfg = { 0 };
 	strncpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid) - 1);
 	strncpy((char *)sta_cfg.sta.password, pass, sizeof(sta_cfg.sta.password) - 1);
@@ -547,11 +546,11 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 	}
 }
 
-static void launch_softap(void)
+static void wifi_init(void)
 {
 	esp_netif_init();
 	esp_event_loop_create_default();
-	esp_netif_create_default_wifi_ap();
+	ap_netif = esp_netif_create_default_wifi_ap();
 	sta_netif = esp_netif_create_default_wifi_sta();
 
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -564,24 +563,49 @@ static void launch_softap(void)
 	esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
 	                                     &wifi_sta_event_handler, NULL, NULL);
 
-	wifi_config_t wifi_cfg = {
-		.ap = {
-			.ssid = AP_SSID,
-			.ssid_len = strlen(AP_SSID),
-			.channel = AP_CHANNEL,
-			.password = AP_PASS,
-			.max_connection = AP_MAX_CONN,
-			.authmode = WIFI_AUTH_WPA2_PSK,
-		},
-	};
-
-	esp_wifi_set_mode(WIFI_MODE_AP);
-	esp_wifi_set_config(WIFI_IF_AP, &wifi_cfg);
+	esp_wifi_set_mode(WIFI_MODE_STA);
 	esp_wifi_start();
 
-	ESP_LOGI(TAG, "SoftAP started. SSID: %s, Password: %s", AP_SSID, AP_PASS);
+	ESP_LOGI(TAG, "WiFi started in STA mode (AP idle)");
+}
 
-	simple_dns_server_start("192.168.4.1");
+void webserver_set_ap_enabled(bool enabled)
+{
+	if (enabled == ap_enabled) return;
+	ap_enabled = enabled;
+
+	if (enabled) {
+		// Switching STA->APSTA leaves STA connection intact
+		esp_wifi_set_mode(WIFI_MODE_APSTA);
+		wifi_config_t ap_cfg = {
+			.ap = {
+				.ssid = AP_SSID,
+				.ssid_len = strlen(AP_SSID),
+				.channel = AP_CHANNEL,
+				.password = AP_PASS,
+				.max_connection = AP_MAX_CONN,
+				.authmode = WIFI_AUTH_WPA2_PSK,
+			},
+		};
+		esp_wifi_set_config(WIFI_IF_AP, &ap_cfg);
+		simple_dns_server_start("192.168.4.1");
+		ESP_LOGI(TAG, "SoftAP enabled. SSID: %s, Password: %s", AP_SSID, AP_PASS);
+	} else {
+		simple_dns_server_stop();
+		// APSTA->STA stops only the AP; STA connection survives
+		esp_wifi_set_mode(WIFI_MODE_STA);
+		ESP_LOGI(TAG, "SoftAP disabled");
+	}
+}
+
+bool webserver_is_ap_enabled(void)
+{
+	return ap_enabled;
+}
+
+const char *webserver_get_ap_ssid(void)
+{
+	return AP_SSID;
 }
 
 esp_err_t webserver_init(void)
@@ -592,7 +616,7 @@ esp_err_t webserver_init(void)
 		nvs_flash_init();
 	}
 
-	launch_softap();
+	wifi_init();
 	start_httpd();
 
 	return ESP_OK;

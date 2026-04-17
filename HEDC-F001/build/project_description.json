@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "app-template",
-    "project_version":    "3717f04-dirty",
+    "project_version":    "dfbe149-dirty",
     "project_path":       "C:/data/git/dotclock/HEDC-F001",
     "idf_path":           "C:/Espressif/frameworks/esp-idf-v5.3.1",
     "build_dir":          "C:/data/git/dotclock/HEDC-F001/build",

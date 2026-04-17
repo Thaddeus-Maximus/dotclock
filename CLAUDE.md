@@ -18,7 +18,7 @@ If something is needed from the toolchain (e.g., adding a component dependency),
 
 ## Firmware (HEDC-F001)
 
-- Partition table: 2x 2MB OTA app partitions, ~12MB SPIFFS storage
+- Partition table: single 2MB factory app partition, ~14MB storage (LittleFS, spiffs subtype)
 - Flash size must be set to 16MB in menuconfig
 - webpage.html is compiled to webpage.h via webpage_compile.py (hooked into CMakeLists.txt)
 - WiFi SoftAP: SSID "dotclock", password "dotclock1", IP 192.168.4.1
