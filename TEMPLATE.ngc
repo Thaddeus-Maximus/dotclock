@@ -1,0 +1,39 @@
+; TEMPLATE.ngc - copy, rename, fill in the middle
+; Setup: Z0 = top of part
+
+; ================= PARAMETERS =================
+#<_z_clearance> = 0.2      ; safe Z for XY rapids
+#<_rampang>     = 5        ; helix entry angle, deg
+;#<_stepover>   = 0.2      ; default = 40% of tool dia
+
+#<_z_top>       = 0.05     ; start Z for cuts
+#<_z_bot>       = -0.25    ; final depth
+
+; ================= PREAMBLE =================
+G20                  ; inch - before G10, so R is read in inches
+G54                  ; work offset
+G17 G40 G80 G90 G94  ; XY plane, no comp, no canned cycle, absolute, IPM
+G64 P0.001           ; path blending tolerance
+
+G10 L1 P1 Z0.0 R0.25 ; set tool 1: radius = 1/2 dia [macros read dia from #5410]
+T1                   ; don't use T0: T0 M6 = no tool, #5410 = 0
+M6                   ; manual tool change dialog
+G43                  ; activate tool length offset
+M101                 ; M101 = Z-axis enabled [CNC]; M102 = Z-axis disabled [manual quill]
+
+G0 Z#<_z_clearance>
+M03                  ; spindle on
+G4 P3                ; wait for spindle
+F10                  ; feed, IPM
+
+; ================= PROGRAM =================
+; macro modes, add together: +1 conventional  +2 both-ways  +4 plunge entry  +8 outside
+; see macros.md for the full list
+
+;o<pocket_circ> call [0] [x][y] [diameter] [fincut]
+;o<drill_man> call [x][y]   ; turns Z off [M102] - skip the final Z move below if this is the last op
+
+; ================= END =================
+G0 Z#<_z_clearance>
+M05                  ; spindle off
+M2                   ; end program

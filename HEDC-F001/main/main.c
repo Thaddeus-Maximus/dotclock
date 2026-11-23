@@ -20,6 +20,7 @@ extern void time_set_epoch(int64_t epoch);
 typedef enum {
 	MODE_TIME,
 	MODE_ALARM,
+	MODE_ALARM_ENABLE,
 	MODE_VOLUME,
 	MODE_BRIGHTNESS,
 	MODE_SET_TIME,
@@ -51,34 +52,23 @@ static void init_storage(void)
 	ESP_LOGI(TAG, "Storage: %d KB total, %d KB used", total / 1024, used / 1024);
 }
 
-// Adjust alarm time by delta minutes
-// Below 00:00 → OFF; above 23:59 → wraps to 00:00
-// From OFF, scrolling up → 00:00 (enabled)
+// Adjust alarm time by delta minutes, wrapping around at 00:00 / 23:59
 static void adjust_alarm_time(int delta)
 {
-	if (!settings_get_alarm_enabled()) {
-		if (delta > 0) {
-			settings_set_alarm_enabled(true);
-			settings_set_alarm_time(0, 0);
-			alarm_reschedule();
-		}
-		return;
-	}
-
 	int total = settings_get_alarm_hour() * 60 + settings_get_alarm_minute() + delta;
-
-	if (total < 0) {
-		// Scrolled below 00:00 → OFF
-		settings_set_alarm_enabled(false);
-		alarm_reschedule();
-		return;
-	}
-
-	// Wrap at top (23:59 + 1 → 00:00, stays enabled)
-	total = total % (24 * 60);
-
+	total = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
 	settings_set_alarm_time(total / 60, total % 60);
 	alarm_reschedule();
+}
+
+// Turn alarm on (positive tick) or off (negative tick)
+static void adjust_alarm_enable(int delta)
+{
+	bool enable = delta > 0;
+	if (settings_get_alarm_enabled() != enable) {
+		settings_set_alarm_enabled(enable);
+		alarm_reschedule();
+	}
 }
 
 // Adjust the system clock by delta minutes
@@ -144,13 +134,12 @@ static void show_mode_value(ui_mode_t mode)
 		display_icon_number(DISPLAY_ICON_BRIGHTNESS, settings_get_brightness());
 		break;
 	case MODE_ALARM:
-		if (settings_get_alarm_enabled()) {
-			display_icon_time(DISPLAY_ICON_ALARM,
-			                  settings_get_alarm_hour(),
-			                  settings_get_alarm_minute());
-		} else {
-			display_icon_text(DISPLAY_ICON_ALARM, "off");
-		}
+		display_icon_time(DISPLAY_ICON_ALARM,
+		                  settings_get_alarm_hour(),
+		                  settings_get_alarm_minute());
+		break;
+	case MODE_ALARM_ENABLE:
+		display_icon_text(DISPLAY_ICON_ALARM, settings_get_alarm_enabled() ? "on" : "off");
 		break;
 	case MODE_SET_TIME: {
 		time_t now;
@@ -282,6 +271,10 @@ void app_main(void)
 				adjust_alarm_time(delta * step_table[enc.speed]);
 				break;
 			}
+
+			case MODE_ALARM_ENABLE:
+				adjust_alarm_enable(delta);
+				break;
 
 			case MODE_SET_TIME: {
 				static const int step_table[] = {1, 5, 15};

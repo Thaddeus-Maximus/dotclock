@@ -1,4 +1,4 @@
-# Install script for directory: C:/data/git/dotclock/HEDC-F001
+# Install script for directory: D:/HE/HEDC/HEDC-F001
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/data/git/dotclock/HEDC-F001/build/esp-idf/cmake_install.cmake")
+  include("D:/HE/HEDC/HEDC-F001/build/esp-idf/cmake_install.cmake")
 
 endif()
 
@@ -51,5 +51,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "C:/data/git/dotclock/HEDC-F001/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "D:/HE/HEDC/HEDC-F001/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

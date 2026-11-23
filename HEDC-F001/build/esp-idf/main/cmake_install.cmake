@@ -1,4 +1,4 @@
-# Install script for directory: C:/data/git/dotclock/HEDC-F001/main
+# Install script for directory: D:/HE/HEDC/HEDC-F001/main
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

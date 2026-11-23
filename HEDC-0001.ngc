@@ -1,0 +1,264 @@
+; HEDC-0001.ngc - face top, display pocket, ledge, cable slot and 40 mm circle, from HEDC-0001.SLDPRT REV 1
+;
+; Setup: open side of pocket UP, cable slot toward +X
+;        X0 Y0 = BACK LEFT corner, part lies in +X -Y, Z0 = FINISHED top of part, bottom = Z-1.200
+;        stock already squared to 6.250 x 2.250, 1.250 thick [see _z_stock]. Faces the top,
+;        does not cut the outside
+;        maple, grain along X
+; Hold:  jaws on the 6.250 long sides, tops below Z0: facing overhangs all 4 edges by 0.1.
+;        Cutter runs out the +X end to X6.47 at Z-1.015:
+;        back that end with scrap wood [it gets cut] to stop blowout, no stop or clamp.
+;        Floor is only 0.035 thick: support all of it underneath.
+; Tool:  3/16 flat endmill, center cutting. Must reach 1.165 deep without the shank rubbing.
+; Uses no macros: pocket_rect helix entry is broken [G90.1 with incremental I J]
+
+; ================= PARAMETERS =================
+#<_tool_d>      = 0.1875   ; tool diameter - path uses this, not the tool table [#5410]
+#<_z_clearance> = 0.2      ; safe Z for XY rapids
+#<_stepover>    = 0.086    ; 46% of tool dia
+#<_stepdown>    = 0.125    ; max depth per pass
+#<_fin>         = 0.010    ; wall finish allowance, taken at every depth
+#<_floor_fin>   = 0.015    ; last pass over the thin floor
+#<_feed_cut>    = 30       ; IPM, clearing and walls
+#<_feed_slot>   = 20       ; IPM, ramps, full-width slots and corner reliefs
+#<_z_stock>     = 0.050    ; facing: raw stock height above Z0 = thickness - 1.200. 0 = skip facing
+#<_face_step>   = 0.065    ; facing: max depth per pass
+#<_face_over>   = 0.120    ; facing: stepover
+#<_gap>         = 0.02     ; rapid down to this far above the last depth, then feed
+
+; ---- part, inches, from the model. These are measured from part CENTER ----
+#<_xc>     = 3.125               ; part center, from the back left corner zero
+#<_yc>     = -1.125
+#<_xleft>  = -2.695              ; pocket left wall
+#<_xwall>  = 2.525               ; pocket right wall
+#<_ywall>  = 0.635               ; pocket half width
+#<_xledge> = [#<_xwall> + 0.420] ; ledge end wall
+#<_xend>   = 3.125               ; +X end of part
+#<_yend>   = 1.125               ; half width of part
+#<_yslot>  = 0.200               ; cable slot half width
+#<_xcirc>  = -1.250              ; 40 mm circle center
+#<_dcirc>  = [40/25.4]           ; circle diameter
+#<_zcirc>  = [0 - 5/25.4]        ; circle floor [5 mm]
+#<_zledge> = -0.565              ; ledge
+#<_zslot>  = -1.015              ; cable slot floor
+#<_zfloor> = -1.165              ; main pocket floor
+
+; ================= SUBROUTINE =================
+; clear one depth: ramp down center slot, rectangles center-out, finish lap. All climb.
+; o<level> call [z_from] [z] [x_wall_right] [1 = with cable slot, 0 = without]
+o<level> sub
+	#<z0>   = #1
+	#<z>    = #2
+	#<xw>   = #3
+	#<slot> = #4
+	#<r>    = [#<_tool_d>/2]
+	#<xl>   = [#<_xleft> + #<r>] ; finish tool center lines
+	#<xr>   = [#<xw> - #<r>]
+	#<ym>   = [#<_ywall> - #<r>]
+	#<xd>   = [#<_xwall> - #<r>]     ; right corner relief X
+
+	; --- center slot ---
+	#<h>  = [#<ym> - #<_fin>]
+	#<xa> = [#<xl> + #<ym>]
+	#<xb> = [#<xr> - #<ym>]
+	G0 Z[#<z0> + #<_gap>]
+	G0 X[#<_xc> + #<xa>] Y#<_yc>
+	G1 X[#<_xc> + #<xb>] Z#<z> F#<_feed_slot>
+	G1 X[#<_xc> + #<xa>]
+
+	; --- rectangles, center-out, CCW ---
+	#<n> = FUP[#<h>/#<_stepover> - 0.0001]
+	#<k> = 1
+	o110 while [#<k> LE #<n>]
+		#<off> = [#<h>*#<k>/#<n>]
+		F#<_feed_cut>
+		G1 X[#<_xc> + #<xa> - #<off>]
+		G1 Y[#<_yc> - #<off>]
+		G1 X[#<_xc> + #<xb> + #<off>]
+		G1 Y[#<_yc> + #<off>]
+		G1 X[#<_xc> + #<xa> - #<off>]
+		G1 Y#<_yc>
+		#<k> = [#<k> + 1]
+	o110 endwhile
+
+	; --- rough cable slot: middle, then climb back and out, leaves fin on the sides ---
+	#<xs>   = [#<xr> - #<_fin> - 0.01]
+	#<xout> = [#<_xend> + #<r> + 0.03]
+	#<yr>   = [#<_yslot> - #<r> - #<_fin>]
+	o120 if [#<slot> EQ 1]
+		G0 Z[#<z> + #<_gap>]
+		G0 X[#<_xc> + #<xs>] Y#<_yc>
+		G1 Z#<z> F#<_feed_slot>
+		G1 X[#<_xc> + #<xout>]
+		F#<_feed_cut>
+		G1 Y[#<_yc> + #<yr>]
+		G1 X[#<_xc> + #<xs>]
+		G1 Y[#<_yc> - #<yr>]
+		G1 X[#<_xc> + #<xout>]
+		G1 Y#<_yc>
+		G0 Z[#<z> + #<_gap>]
+		G0 X[#<_xc> + #<xs>]
+	o120 endif
+
+	; --- finish lap, CCW, arc on and off at left wall ---
+	#<a> = 0.06
+	G0 Z[#<z> + #<_gap>]
+	G0 X[#<_xc> + #<xl> + #<a> + #<_fin>] Y[#<_yc> + #<a>]
+	G1 Z#<z> F#<_feed_cut>
+	G1 X[#<_xc> + #<xl> + #<a>]
+	G3 X[#<_xc> + #<xl>] Y#<_yc> I0 J[0 - #<a>]
+
+	G1 Y[#<_yc> - #<ym>]
+	G1 Y[#<_yc> - #<_ywall>] F#<_feed_slot> ; corner relief
+	G1 Y[#<_yc> - #<ym>]
+	F#<_feed_cut>
+	G1 X[#<_xc> + #<xd>]
+	G1 Y[#<_yc> - #<_ywall>] F#<_feed_slot> ; corner relief
+	G1 Y[#<_yc> - #<ym>]
+	F#<_feed_cut>
+
+	G1 X[#<_xc> + #<xr>]
+	o130 if [#<slot> EQ 1]
+		; out one side of the slot and back the other: G2 = roll around the corners
+		#<ys> = [#<_yslot> - #<r>]
+		G1 Y[#<_yc> - #<_yslot>]
+		G2 X[#<_xc> + #<xw>] Y[#<_yc> - #<ys>] I#<r> J0
+		G1 X[#<_xc> + #<xout>]
+		G1 Y[#<_yc> + #<ys>]
+		G1 X[#<_xc> + #<xw>]
+		G2 X[#<_xc> + #<xr>] Y[#<_yc> + #<_yslot>] I0 J#<r>
+	o130 endif
+	G1 Y[#<_yc> + #<ym>]
+
+	G1 X[#<_xc> + #<xd>]
+	G1 Y[#<_yc> + #<_ywall>] F#<_feed_slot> ; corner relief
+	G1 Y[#<_yc> + #<ym>]
+	F#<_feed_cut>
+	G1 X[#<_xc> + #<xl>]
+	G1 Y[#<_yc> + #<_ywall>] F#<_feed_slot> ; corner relief
+	G1 Y[#<_yc> + #<ym>]
+	F#<_feed_cut>
+	G1 Y[#<_yc> - 0.05]
+	G3 X[#<_xc> + #<xl> + #<a>] Y[#<_yc> - 0.05 - #<a>] I#<a> J0
+o<level> endsub
+
+; ================= PREAMBLE =================
+G20                  ; inch - before G10, so R is read in inches
+G54                  ; work offset
+G17 G40 G80 G90 G94  ; XY plane, no comp, no canned cycle, absolute, IPM
+G91.1                ; incremental I J
+G64 P0.001           ; path blending tolerance
+
+G10 L1 P1 Z0.0 R[#<_tool_d>/2] ; set tool 1 radius
+T1
+M6                   ; manual tool change dialog
+G43                  ; activate tool length offset
+M101                 ; M101 = Z-axis enabled [CNC]; M102 = Z-axis disabled [manual quill]
+
+; slightly undersize [reground] tools are fine: set _tool_d. Bigger will not fit the corners
+o10 if [[#<_tool_d> GT 0.1876] OR [#<_tool_d> LT 0.180]]
+	(abort, HEDC-0001 needs a 3/16 endmill - check _tool_d)
+	M2
+o10 endif
+o11 if [#<_z_stock> GT [#<_z_clearance> - 0.05]]
+	(abort, raise _z_clearance to at least 0.05 above _z_stock)
+	M2
+o11 endif
+
+G0 Z#<_z_clearance>
+M03                  ; spindle on
+G4 P3                ; wait for spindle
+F#<_feed_cut>
+
+; ================= PROGRAM =================
+; --- face top: rectangles, outside-in, CW = climb, teeth sweep in from every edge ---
+#<r>  = [#<_tool_d>/2]
+#<n>  = FUP[#<_z_stock>/#<_face_step> - 0.0001]
+#<nr> = FUP[#<_yend>/#<_face_over> - 0.0001]
+#<i>  = 1
+o190 while [#<i> LE #<n>]
+	G0 Z#<_z_clearance>
+	G0 X[#<_xc> - #<_xend> - #<r> - 0.1] Y[#<_yc> + #<_yend>] ; off the -X end
+	G0 Z[#<_z_stock> - #<_z_stock>*#<i>/#<n>]
+	F#<_feed_cut>
+	#<k> = 0
+	o191 while [#<k> LE #<nr>]
+		#<off> = [#<_yend>*#<k>/#<nr>]
+		#<x> = [#<_xend> - #<off>]
+		#<y> = [#<_yend> - #<off>]
+		G1 X[#<_xc> - #<x>] Y[#<_yc> + #<y>]
+		G1 X[#<_xc> + #<x>]
+		G1 Y[#<_yc> - #<y>]
+		G1 X[#<_xc> - #<x>]
+		G1 Y[#<_yc> + #<y>]
+		#<k> = [#<k> + 1]
+	o191 endwhile
+	#<i> = [#<i> + 1]
+o190 endwhile
+G0 Z#<_z_clearance>
+
+; --- top to ledge: main pocket + ledge + cable slot ---
+#<n> = FUP[[0 - #<_zledge>]/#<_stepdown> - 0.0001]
+#<i> = 1
+#<zp> = 0
+G0 X[#<_xc> + #<_ywall> + #<_xleft>] Y#<_yc> ; left end of center slot, still at clearance Z
+o200 while [#<i> LE #<n>]
+	#<zn> = [#<_zledge>*#<i>/#<n>]
+	o<level> call [#<zp>] [#<zn>] [#<_xledge>] [1]
+	#<zp> = #<zn>
+	#<i> = [#<i> + 1]
+o200 endwhile
+
+; --- 40 mm circle: only the two lobes past the pocket walls touch wood ---
+#<r>  = [#<_tool_d>/2]
+#<r0> = [#<_ywall> - #<r>]             ; biggest circle already inside the pocket
+#<rf> = [#<_dcirc>/2 - #<r>]           ; finish circle
+#<nr> = FUP[[#<rf> - #<_fin> - #<r0>]/#<_stepover> - 0.0001]
+#<n>  = FUP[[0 - #<_zcirc>]/#<_stepdown> - 0.0001]
+#<i>  = 1
+G0 Z[#<_zcirc>/#<n>]
+G0 X[#<_xc> + #<_xcirc> + #<r0>] Y#<_yc>
+F#<_feed_cut>
+o220 while [#<i> LE #<n>]
+	G1 X[#<_xc> + #<_xcirc> + #<r0>]
+	G1 Z[#<_zcirc>*#<i>/#<n>]
+	#<k> = 1
+	o221 while [#<k> LE #<nr>]
+		#<rad> = [#<r0> + [#<rf> - #<_fin> - #<r0>]*#<k>/#<nr>]
+		G1 X[#<_xc> + #<_xcirc> + #<rad>]
+		G3 X[#<_xc> + #<_xcirc> + #<rad>] Y#<_yc> I[0 - #<rad>] J0
+		#<k> = [#<k> + 1]
+	o221 endwhile
+	G1 X[#<_xc> + #<_xcirc> + #<rf>]
+	G3 X[#<_xc> + #<_xcirc> + #<rf>] Y#<_yc> I[0 - #<rf>] J0
+	#<i> = [#<i> + 1]
+o220 endwhile
+
+; --- ledge to slot floor: main pocket + cable slot ---
+#<n> = FUP[[#<_zledge> - #<_zslot>]/#<_stepdown> - 0.0001]
+#<i> = 1
+o205 while [#<i> LE #<n>]
+	#<zn> = [#<_zledge> + [#<_zslot> - #<_zledge>]*#<i>/#<n>]
+	o<level> call [#<zp>] [#<zn>] [#<_xwall>] [1]
+	#<zp> = #<zn>
+	#<i> = [#<i> + 1]
+o205 endwhile
+
+; --- slot floor to pocket floor: main pocket only ---
+#<zr> = [#<_zfloor> + #<_floor_fin>]
+#<n>  = FUP[[#<_zslot> - #<zr>]/#<_stepdown> - 0.0001]
+#<i>  = 1
+o210 while [#<i> LE #<n>]
+	#<zn> = [#<_zslot> + [#<zr> - #<_zslot>]*#<i>/#<n>]
+	o<level> call [#<zp>] [#<zn>] [#<_xwall>] [0]
+	#<zp> = #<zn>
+	#<i> = [#<i> + 1]
+o210 endwhile
+
+; --- floor finish ---
+o<level> call [#<zp>] [#<_zfloor>] [#<_xwall>] [0]
+
+; ================= END =================
+G0 Z#<_z_clearance>
+M05                  ; spindle off
+M2                   ; end program
